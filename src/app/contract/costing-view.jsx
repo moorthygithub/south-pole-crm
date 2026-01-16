@@ -35,20 +35,24 @@ const CostingView = () => {
   }, [id]);
 
   const safe = (value) => value || "\u00A0";
-  const groupedData = contractSubDataone.reduce((acc, item) => {
-    const key = item.contractTransport_details;
+  const transportAmountMap = contractSubDataone.reduce((acc, item) => {
+    acc[item.contractTransport_details] =
+      Number(item.contractTransport_amount) || 0;
+    return acc;
+  }, {});
+
+  const groupedData = contractSubData.reduce((acc, item) => {
+    const key = item.contractSub_item_brand_name;
 
     if (!acc[key]) {
       acc[key] = {
         details: key,
         count: 0,
-        totalAmount: 0,
+        totalAmount: transportAmountMap[key] || 0,
       };
     }
 
     acc[key].count += 1;
-    acc[key].totalAmount += Number(item.contractTransport_amount || 0);
-
     return acc;
   }, {});
 
