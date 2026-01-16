@@ -40,7 +40,7 @@ import useMasterQueries from "@/hooks/useMasterQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileText, Loader2, Plus, Trash2, X } from "lucide-react";
 import moment from "moment";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -127,8 +127,9 @@ const ContractForm = () => {
   const queryClient = useQueryClient();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [subToDelete, setSubToDelete] = useState(null);
+  const [deleteConfirmOpen1, setDeleteConfirmOpen1] = useState(false);
+  const [subToDelete1, setSubToDelete1] = useState(null);
   const [formData, setFormData] = useState(INITIAL_STATE);
-  const [availableQuantity, setAvailableQuantity] = useState({});
   const [contractNoOptions, setContractNoOptions] = useState([]);
   const [errors, setErrors] = useState({});
   const { trigger, loading } = useApiMutation();
@@ -256,14 +257,12 @@ const ContractForm = () => {
       });
 
       const data = res?.data || {};
-
       setFormData({
         ...INITIAL_STATE,
         branch_short: data.branch_short ?? "",
         contract_date: data.contract_date
           ? moment(data.contract_date).format("YYYY-MM-DD")
           : moment().format("YYYY-MM-DD"),
-
         contract_no: data.contract_no ?? "",
         contract_ref: data.contract_ref ?? "",
         contract_pono: data.contract_pono ?? "",
@@ -313,6 +312,15 @@ const ContractForm = () => {
                 contractSub_item_gst: s.contractSub_item_gst ?? "",
               }))
             : [{ ...EMPTY_SUB }],
+        subs1:
+          Array.isArray(data.subs1) && data.subs1.length > 0
+            ? data.subs1.map((s) => ({
+                ...EMPTY_SUB_ONE,
+                id: s.id ?? "",
+                contractTransport_details: s.contractTransport_details ?? "",
+                contractTransport_amount: s.contractTransport_amount ?? "",
+              }))
+            : [{ ...EMPTY_SUB_ONE }],
       });
     })();
   }, [id, isEdit]);
@@ -430,7 +438,6 @@ const ContractForm = () => {
       const validCountry = countryData?.data?.some(
         (p) => p.country_port === cp.buyer_port
       );
-      console.log(validCountry);
       setFormData((p) => ({
         ...p,
         contract_destination_port: value,
@@ -505,7 +512,41 @@ const ContractForm = () => {
       }
 
       if (!row.contractSub_selling_rate) {
-        newErrors[`subs.${idx}.contractSub_selling_rate`] = "Mrp is required";
+        newErrors[`subs.${idx}.contractSub_selling_rate`] =
+          "Selling is required";
+      }
+    });
+    formData.subs1.forEach((row, idx) => {
+      if (!row.contractTransport_details) {
+        newErrors[`subs.${idx}.contractTransport_details`] =
+          "Transport Details is required";
+      }
+      if (!row.contractTransport_amount) {
+        newErrors[`subs.${idx}.contractTransport_amount`] =
+          "Amount is required";
+      }
+      const valid = transportItemOptions.some(
+        (o) => o.value === row.contractTransport_details
+      );
+
+      if (row.contractTransport_details && !valid) {
+        newErrors[`subs1.${idx}.contractTransport_details`] =
+          "Transport item is no longer valid. Please select again.";
+      }
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  const validateForm1 = () => {
+    const newErrors = {};
+
+    formData.subs.forEach((row, idx) => {
+      if (!row.contractSub_item_id) {
+        newErrors[`subs.${idx}.contractSub_item_id`] = "Item is required";
+      }
+      if (!row.contractSub_qnty) {
+        newErrors[`subs.${idx}.contractSub_qnty`] = "Qty is required";
       }
     });
     setErrors(newErrors);
@@ -513,6 +554,20 @@ const ContractForm = () => {
   };
 
   const handleSubmit = async () => {
+    const hasInvalidTransport = formData.subs1.some(
+      (row) =>
+        row.contractTransport_details &&
+        !transportItemOptions.some(
+          (o) => o.value === row.contractTransport_details
+        )
+    );
+
+    if (hasInvalidTransport) {
+      toast.error(
+        "Transport data is not matched with selected items. Please reselect transport details."
+      );
+      return;
+    }
     if (!validateForm()) {
       toast.error("Please fix the errors before submitting");
       return;
@@ -553,32 +608,32 @@ const ContractForm = () => {
     }
   };
 
-  // const handleSubChange = (index, key, value) => {
-  //   const subs = [...formData.subs];
-  //   subs[index][key] = value;
-  //   setFormData((p) => ({ ...p, subs }));
-  //   clearErrors(`subs.${index}.${key}`);
-  // };
   const handleSubChange = (index, key, value) => {
     const subs = [...formData.subs];
-
-    // Set selected value
     subs[index][key] = value;
 
     if (key === "contractSub_item_id") {
       const selectedItem = itemData?.data?.find(
         (item) => String(item.id) === String(value)
       );
-      setAvailableQuantity((prev) => ({
-        ...prev,
-        [index]: selectedItem?.total_qnty ?? 0,
-      }));
+
       subs[index].contractSub_item_gst = selectedItem?.item_gst ?? "";
     }
 
     setFormData((p) => ({
       ...p,
       subs,
+    }));
+
+    clearErrors(`subs.${index}.${key}`);
+  };
+  const handleSubChange1 = (index, key, value) => {
+    const subs1 = [...formData.subs1];
+    subs1[index][key] = value;
+
+    setFormData((p) => ({
+      ...p,
+      subs1,
     }));
 
     clearErrors(`subs.${index}.${key}`);
@@ -598,6 +653,21 @@ const ContractForm = () => {
           : p.subs.filter((_, i) => i !== index),
     }));
   };
+  const addSub1 = () => {
+    setFormData((p) => ({
+      ...p,
+      subs1: [...p.subs1, { ...EMPTY_SUB_ONE }],
+    }));
+  };
+  const removeSub1 = (index) => {
+    setFormData((p) => ({
+      ...p,
+      subs1:
+        p.subs1.length === 1
+          ? [{ ...EMPTY_SUB_ONE }]
+          : p.subs1.filter((_, i) => i !== index),
+    }));
+  };
   const confirmDelete = async () => {
     if (!subToDelete) return;
 
@@ -607,7 +677,7 @@ const ContractForm = () => {
         method: "DELETE",
       });
       if (res.code == 201) {
-        toast.success("Sub item deleted successfully");
+        toast.success(res.message || "Sub item deleted successfully");
 
         setFormData((p) => ({
           ...p,
@@ -632,6 +702,64 @@ const ContractForm = () => {
       setSubToDelete(null);
     }
   };
+  const confirmDelete1 = async () => {
+    if (!subToDelete1) return;
+    try {
+      const res = await Deletetrigger({
+        url: CONTRACT_API.deleteTransport(subToDelete1.id),
+        method: "DELETE",
+      });
+      if (res.code == 201) {
+        toast.success(res.message || "Sub item deleted successfully");
+
+        setFormData((p) => ({
+          ...p,
+          subs1: p.subs1.filter((_, i) => i !== subToDelete1.index),
+        }));
+      } else {
+        toast.error(err.message || "Failed to delete sub item");
+
+        setErrors((p) => {
+          const newErrors = { ...p };
+          Object.keys(newErrors).forEach((key) => {
+            if (key.startsWith(`sub1_${subToDelete1.index}_`))
+              delete newErrors[key];
+          });
+          return newErrors;
+        });
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to delete sub item");
+    } finally {
+      setDeleteConfirmOpen1(false);
+      setSubToDelete1(null);
+    }
+  };
+
+  const transportItemOptions = useMemo(() => {
+    if (!itemData?.data || !formData?.subs) return [];
+
+    const selectedItemIds = formData.subs
+      .map((s) => s.contractSub_item_id)
+      .filter(Boolean);
+
+    const map = new Map();
+
+    selectedItemIds.forEach((id) => {
+      const item = itemData.data.find((i) => String(i.id) === String(id));
+
+      if (item && !map.has(item.id)) {
+        map.set(item.id, {
+          id: item.id,
+          value: item.item_brand_name,
+          label: item.item_brand_name,
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [itemData, formData.subs]);
+
   if (
     error ||
     branchError ||
@@ -699,35 +827,48 @@ const ContractForm = () => {
         title={isEdit ? "Edit Contract" : "Create Contract"}
         rightContent={
           <div className="flex gap-2">
-            {step === 2 && (
-              <Button variant="outline" onClick={() => setStep(1)}>
+            {/* Back button */}
+            {step !== "form" && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (step === "items") setStep("form");
+                  else if (step === "transport") setStep("items");
+                }}
+              >
                 Back
               </Button>
             )}
 
-            {step === 1 ? (
-              <>
-                <Button
-                  onClick={() => {
-                    if (!validateContractDetails()) {
-                      toast.error("Please fill required contract details");
-                      return;
-                    }
-                    setStep(2);
-                  }}
-                >
-                  Next
-                </Button>
-                {isEdit && (
-                  <Button onClick={handleSubmit} disabled={loading}>
-                    {loading && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    {isEdit ? "Update" : "Create"}
-                  </Button>
-                )}
-              </>
-            ) : (
+            {step === "form" && (
+              <Button
+                onClick={() => {
+                  if (!validateContractDetails()) {
+                    toast.error("Please fill required contract details");
+                    return;
+                  }
+                  setStep("items");
+                }}
+              >
+                Next
+              </Button>
+            )}
+
+            {step === "items" && (
+              <Button
+                onClick={() => {
+                  if (!validateForm1()) {
+                    toast.error("Please fix item errors");
+                    return;
+                  }
+                  setStep("transport");
+                }}
+              >
+                Next
+              </Button>
+            )}
+
+            {step === "transport" && (
               <Button onClick={handleSubmit} disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isEdit ? "Update" : "Create"}
@@ -738,18 +879,6 @@ const ContractForm = () => {
       />
 
       <Card className="p-4 space-y-6">
-        {/* <Tabs
-          defaultValue="form"
-          className="w-full"
-          value={step === 1 ? "form" : "items"}
-          onValueChange={(value) => {
-            if (value === "items") {
-              setStep(2);
-            } else {
-              setStep(1);
-            }
-          }}
-        > */}
         <Tabs value={step} onValueChange={setStep} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="form">Contract Details</TabsTrigger>
@@ -1119,15 +1248,16 @@ const ContractForm = () => {
                             onChange={(v) =>
                               handleSubChange(idx, "contractSub_item_id", v)
                             }
+                            disabled={row.id}
                             options={itemData?.data || []}
                             optionKey="id"
-                            optionLabel="item_brand_name"
+                            optionLabel="item_name"
                             error={errors[`subs.${idx}.contractSub_item_id`]}
                           />
                         </TableCell>
 
                         <TableCell>
-                          <div className="flex flex-col gap-1 mt-6">
+                          <div className="flex flex-col gap-1">
                             <Field
                               hideLabel
                               value={row.contractSub_qnty ?? ""}
@@ -1140,15 +1270,6 @@ const ContractForm = () => {
                               }
                               error={errors[`subs.${idx}.contractSub_qnty`]}
                             />
-
-                            <div className="min-h-[14px] text-[11px] font-medium">
-                              {!isEdit && (
-                                <>
-                                  Available Quantity:{" "}
-                                  <span>{availableQuantity[idx] ?? 0}</span>
-                                </>
-                              )}
-                            </div>
                           </div>
                         </TableCell>
 
@@ -1225,15 +1346,15 @@ const ContractForm = () => {
                             hideLabel
                             value={row.contractTransport_details}
                             onChange={(v) =>
-                              handleSubChange(
+                              handleSubChange1(
                                 idx,
                                 "contractTransport_details",
                                 v
                               )
                             }
-                            options={itemData?.data || []}
-                            optionKey="id"
-                            optionLabel="item_brand_name"
+                            options={transportItemOptions}
+                            optionKey="value"
+                            optionLabel="label"
                             error={
                               errors[`subs.${idx}.contractTransport_details`]
                             }
@@ -1246,7 +1367,7 @@ const ContractForm = () => {
                               hideLabel
                               value={row.contractTransport_amount ?? ""}
                               onChange={(v) =>
-                                handleSubChange(
+                                handleSubChange1(
                                   idx,
                                   "contractTransport_amount",
                                   v.replace(/[^0-9]/g, "")
@@ -1260,16 +1381,16 @@ const ContractForm = () => {
                         </TableCell>
 
                         <TableCell className="text-center">
-                          {formData.subs.length > 1 && (
+                          {formData.subs1.length > 1 && (
                             <Button
                               size="icon"
                               variant={row.id ? "destructive" : "secondary"}
                               onClick={() => {
                                 if (row.id) {
-                                  setSubToDelete({ index: idx, id: row.id });
-                                  setDeleteConfirmOpen(true);
+                                  setSubToDelete1({ index: idx, id: row.id });
+                                  setDeleteConfirmOpen1(true);
                                 } else {
-                                  removeSub(idx);
+                                  removeSub1(idx);
                                 }
                               }}
                             >
@@ -1286,11 +1407,11 @@ const ContractForm = () => {
               <Button
                 variant="outline"
                 className="mt-4"
-                onClick={addSub}
+                onClick={addSub1}
                 type="button"
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Add Item
+                Add Transports
               </Button>
             </>
           </TabsContent>
@@ -1308,6 +1429,26 @@ const ContractForm = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={deleteConfirmOpen1}
+        onOpenChange={setDeleteConfirmOpen1}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              contract.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete1}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

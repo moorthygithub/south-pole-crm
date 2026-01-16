@@ -1,36 +1,4 @@
-branch_short
-contract_date
-contract_no
-contract_ref
-contract_pono
-contract_buyer_id
-contract_buyer
-contract_buyer_add
-contract_consignee_id
-contract_consignee
-contract_consignee_add
-contract_container_size
-contract_product
-contract_product_cust_des
-contract_gr_code
-contract_lut_code
-contract_vessel_flight_no
-contract_loading
-contract_prereceipts
-contract_precarriage
-contract_destination_port
-contract_discharge
-contract_cif
-contract_destination_country
-contract_freight_charges
-contract_dollar_rate
-contract_shipment
-contract_ship_date
-contract_specification1
-contract_specification2
-contract_payment_terms
-contract_remarks
-subs[contractSub_item_id,contractSub_qnty,contractSub_selling_rate]
-contractSub_item_gst is from backend pass a data which in item api
-
-subs1[contractTransport_details,contractTransport_amount]
+contractTransport_amount: "4500.00";
+contractTransport_details: "THIRU TMMR";
+contractTransport_ref: "SPT/ATZE/25-26/1";
+contractTransport_status: "Open";

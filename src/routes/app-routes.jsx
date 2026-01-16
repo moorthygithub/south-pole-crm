@@ -62,6 +62,7 @@ import MonthWiseReport from "@/app/report/monthwisereport/monthwisereport";
 import PaymentPending from "@/app/payment/payment-pending";
 import PaymentClose from "@/app/payment/payment-close";
 import ItemForm from "@/app/item/item-form";
+import CostingView from "@/app/contract/costing-view";
 
 function AppRoutes() {
   return (
@@ -415,6 +416,14 @@ function AppRoutes() {
             element={
               <Suspense fallback={<LoadingBar />}>
                 <ContractExport />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/costing/view/:id"
+            element={
+              <Suspense fallback={<LoadingBar />}>
+                <CostingView />
               </Suspense>
             }
           />

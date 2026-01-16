@@ -219,6 +219,7 @@ export const CONTRACT_API = {
   updateById: (id) => `/contract/${id}`,
   updateStatus: (id) => `/contracts/${id}/status`,
   deleteSubs: (id) => `/deletecontractSub/${id}`,
+  deleteTransport: (id) => `/deletecontractTransport/${id}`,
 };
 export const INVOICE_API = {
   getlist: "/invoice",
