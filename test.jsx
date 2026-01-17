@@ -1,4 +1,13 @@
-contractTransport_amount: "4500.00";
-contractTransport_details: "THIRU TMMR";
-contractTransport_ref: "SPT/ATZE/25-26/1";
-contractTransport_status: "Open";
+
+
+
+
+
+invoice_payment_terms
+invoice_remarks
+
+
+invoice_dollar_rate
+
+
+subs[invoiceSub_marks_number,invoiceSub_item_id,invoiceSub_qnty,invoiceSub_selling_rate]
