@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
+import { Button } from "@/components/ui/button";
 const CostingView = () => {
   const { id } = useParams();
   const printRef = useRef();
@@ -321,16 +322,15 @@ const CostingView = () => {
   return (
     <div className="relative">
       {loading && <LoadingBar />}
-      <button
-        onClick={exportToExcel}
-        className="mb-3 px-4 py-2 bg-green-600 text-white rounded text-sm"
-      >
-        Export to Excel
-      </button>
 
+      <div className="my-4 flex justify-end">
+        <Button variant="outline" onClick={exportToExcel}>
+          Export to Excel
+        </Button>
+      </div>
       <div className="font-normal" ref={printRef}>
         {contractData && (
-          <div className="text-[12px] mx-10">
+          <div className="text-[12px]">
             <table className="w-full border-collapse table-auto border-b border-black">
               <thead>
                 <tr className="border border-black text-[10px] font-bold text-center">

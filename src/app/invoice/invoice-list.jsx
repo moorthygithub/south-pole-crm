@@ -3,8 +3,6 @@ import {
   InvoiceDocument,
   InvoiceEdit,
   InvoiceExport,
-  InvoicePacking,
-  InvoicePackingCreate,
   InvoicePackingEdit,
 } from "@/components/buttoncontrol/button-component";
 import DataTable from "@/components/common/data-table";
@@ -87,17 +85,17 @@ const InvoiceList = () => {
           <InvoiceEdit
             onClick={() => navigate(`/invoice/edit/${row.original.id}`)}
           />
-          <InvoiceDocument
+          {/* <InvoiceDocument
             onClick={() => navigate(`/invoicedocument/edit/${row.original.id}`)}
-          />
+          /> */}
           {/* <InvoicePackingCreate
             onClick={() => navigate(`/invoicepacking/${row.original.id}`)}
           /> */}
-          <InvoicePackingEdit
+          {/* <InvoicePackingEdit
             onClick={() =>
               navigate(`/invoicepacking/${row.original.id}?isEdit=true`)
             }
-          />
+          /> */}
           <InvoiceExport
             onClick={() => navigate(`/invoice/export/${row.original.id}`)}
           />

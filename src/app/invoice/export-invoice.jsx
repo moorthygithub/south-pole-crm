@@ -3,6 +3,7 @@ import LoadingBar from "@/components/loader/loading-bar";
 import { INVOICE_API } from "@/constants/apiConstants";
 import { useApiMutation } from "@/hooks/useApiMutation";
 import moment from "moment";
+import { toWords } from "number-to-words";
 import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 const ExportInvoice = () => {
@@ -40,24 +41,51 @@ const ExportInvoice = () => {
   const grandTotalQty = Object.values(groupedItems).reduce(
     (sum, items) =>
       sum + items.reduce((s, it) => s + Number(it.invoiceSub_qnty || 0), 0),
-    0
+    0,
   );
 
   const grandTotalValue = Object.values(groupedItems).reduce(
     (sum, items) =>
       sum +
-      items.reduce(
-        (s, it) =>
-          s +
-          Number(it.invoiceSub_qnty || 0) *
-            Number(it.invoiceSub_selling_rate || 0),
-        0
-      ),
-    0
+      items.reduce((s, it) => s + Number(it.invoiceSub_selling_rate || 0), 0),
+    0,
   );
-  const totalFOB = grandTotalValue;
-  const totalFreight = Number(invoicePackingData?.invoice_freight_usd || 0);
-  const totalCNF = totalFOB + totalFreight;
+  const amountInWords = (amount) => {
+    if (!amount) return "";
+
+    const integerPart = Math.floor(amount);
+    const decimalPart = Math.round((amount - integerPart) * 100);
+
+    const formatCase = (text) =>
+      text
+        .replace(/,/g, "") // remove commas
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+    let words = `${formatCase(toWords(integerPart))} Dollars`;
+
+    if (decimalPart > 0) {
+      words += ` And ${formatCase(toWords(decimalPart))} Cents`;
+    }
+
+    return words + " Only";
+  };
+  const invoiceColGroup = (
+    <colgroup>
+      <col style={{ width: "4%" }} />
+      <col style={{ width: "10%" }} />
+      <col style={{ width: "23%" }} />
+      <col style={{ width: "6%" }} />
+      <col style={{ width: "8%" }} />
+      <col style={{ width: "10%" }} />
+      <col style={{ width: "10%" }} />
+      <col style={{ width: "6%" }} />
+      <col style={{ width: "13%" }} />
+      <col style={{ width: "13%" }} />
+    </colgroup>
+  );
+
   if (error) return <ApiErrorPage />;
   return (
     <div className="relative">
@@ -73,36 +101,45 @@ const ExportInvoice = () => {
                     EXPORT INVOICE
                   </div>
                 </div>
-                {/* //SECTION___1 */}
                 <div className="grid grid-cols-12 border-b border-black text-[12px]">
-                  <div className="col-span-6 border-r border-black">
+                  <div className="col-span-7 border-r border-black">
                     <div className="p-2">
                       <p className="font-bold text-[13px]">
-                        {invoicePackingData.branch_name}
+                        Exporter: {invoicePackingData.branch_name}
                       </p>
-
                       <div className="mt-1">
-                        <span className="font-semibold">CORP OFF:</span>{" "}
-                        {branchData.branch_crop_address || ""}
+                        {branchData?.branch_crop_address || ""}
                       </div>
+                      <div>{branchData?.branch_address || ""}</div>
                       <div>
-                        <span className="font-semibold">REG OFF:</span>{" "}
-                        {branchData.branch_address || ""}
-                      </div>
-                      <div>
-                        <span className="font-semibold">EMAIL:</span>{" "}
-                        {branchData.branch_email_id || ""}
-                      </div>
-                      <div>
+                        <span className="font-semibold">GSTIN:</span>{" "}
+                        {branchData?.branch_gst || ""}{" "}
                         <span className="font-semibold">IEC:</span>{" "}
-                        {branchData.branch_iec || ""}
+                        {branchData?.branch_iec || ""}
+                      </div>
+
+                      <div>
+                        <span className="font-semibold">Mobile:</span>{" "}
+                        {branchData?.branch_mobile_no || ""}
+                      </div>
+                      <div>
+                        <span className="font-semibold">Email:</span>{" "}
+                        {branchData?.branch_email_id || ""}
                       </div>
                     </div>
 
-                    <div className="border-t border-black">
+                    <div className="border-t border-black grid grid-cols-2 gap-2 ">
+                      <div className="p-2 border-r border-black ">
+                        <p className="font-bold">Importer:</p>
+                        <p className="font-bold">
+                          {invoicePackingData.invoice_buyer}
+                        </p>
+                        <div className="mt-1">
+                          {invoicePackingData.invoice_buyer_add}
+                        </div>
+                      </div>
                       <div className="p-2">
-                        <p className="font-bold">Consignee:</p>
-                        <p className="font-bold">TO ORDER OF:</p>
+                        <p className="font-bold">Ship To:</p>
                         <p className="font-bold">
                           {invoicePackingData.invoice_consignee}
                         </p>
@@ -113,7 +150,7 @@ const ExportInvoice = () => {
                     </div>
                   </div>
 
-                  <div className="col-span-6  text-[12px]">
+                  <div className="col-span-5  text-[12px]">
                     <div className="grid grid-cols-2 border-b border-black">
                       <div className="border-r border-black px-2 py-0.5 font-bold min-h-[22px]">
                         Invoice No:
@@ -124,7 +161,6 @@ const ExportInvoice = () => {
                       </div>
                     </div>
 
-                    {/* Date */}
                     <div className="grid grid-cols-2 border-b border-black">
                       <div className="border-r border-black px-2 py-0.5  min-h-[22px]">
                         {safe(invoicePackingData?.invoice_ref)}
@@ -132,7 +168,7 @@ const ExportInvoice = () => {
                       <div className="px-2 py-0.5 min-h-[22px]">
                         {invoicePackingData?.invoice_date
                           ? moment(invoicePackingData.invoice_date).format(
-                              "DD-MM-YYYY"
+                              "DD-MM-YYYY",
                             )
                           : "\u00A0"}
                       </div>
@@ -140,10 +176,10 @@ const ExportInvoice = () => {
 
                     <div className="grid grid-cols-2 border-b border-black">
                       <div className="border-r border-black px-2 py-0.5 font-bold min-h-[22px]">
-                        Pre Carriage by
+                        Order No. & Date
                       </div>
                       <div className="px-2 py-0.5 font-bold min-h-[22px]">
-                        Place of Receipt of Pre-Carrier
+                        LUT/ARN
                       </div>
                     </div>
 
@@ -152,49 +188,33 @@ const ExportInvoice = () => {
                         {safe(invoicePackingData?.invoice_precarriage)}
                       </div>
                       <div className="px-2 py-0.5 min-h-[22px]">
-                        {safe(invoicePackingData?.place_of_receipt)}
+                        {safe(invoicePackingData?.invoice_lut_code)}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 border-b border-black">
                       <div className="border-r border-black px-2 py-0.5 font-bold min-h-[22px]">
-                        Vessel / Flight No.
+                        Port of Loading
                       </div>
                       <div className="px-2 py-0.5 font-bold min-h-[22px]">
-                        Port Of Loading
+                        Port of Discharge
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 border-b border-black">
                       <div className="border-r border-black px-2 py-0.5 min-h-[22px]">
-                        {safe(invoicePackingData?.invoice_vessel_flight_no)}
-                      </div>
-                      <div className="px-2 py-0.5 min-h-[22px]">
                         {safe(invoicePackingData?.invoice_loading)}
                       </div>
+                      <div className="px-2 py-0.5 min-h-[22px]">
+                        {safe(invoicePackingData?.invoice_discharge)}
+                      </div>
                     </div>
+
                     <div className="grid grid-cols-2 border-b border-black">
                       <div className="border-r border-black px-2 py-0.5 font-bold min-h-[22px]">
-                        Port Of Discharge
+                        Origin of Goods
                       </div>
                       <div className="px-2 py-0.5 font-bold min-h-[22px]">
                         Final Destination
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 border-b border-black">
-                      <div className="border-r border-black px-2 py-0.5 min-h-[22px]">
-                        {safe(invoicePackingData?.invoice_discharge)}
-                      </div>
-                      <div className="px-2 py-0.5 min-h-[22px]">
-                        {safe(invoicePackingData?.invoice_destination_country)}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 border-b border-black">
-                      <div className="border-r border-black px-2 py-0.5 font-bold min-h-[22px]">
-                        Country of Origin of Goods
-                      </div>
-                      <div className="px-2 py-0.5 font-bold min-h-[22px]">
-                        Country Of Final Destination
                       </div>
                     </div>
 
@@ -207,178 +227,349 @@ const ExportInvoice = () => {
                       </div>
                     </div>
 
-                    <div className="px-2 py-2 min-h-[36px]">
-                      <p className="font-bold">Terms of Delivery and Payment</p>
+                    <div className="px-2  min-h-[36px]">
+                      <p className="font-bold">Terms of Payment</p>
                       <p>{safe(invoicePackingData?.invoice_payment_terms)}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="text-[12px]">
-                  <table className="w-full border-collapse table-auto border-b border-black ">
+                  <table className="w-full border-collapse table-fixed border-b border-black">
+                    {invoiceColGroup}
+
                     <thead>
-                      <tr className="border-b border-black text-[12px]">
-                        <th
-                          className="border-r border-black text-center text-[11px]"
-                          style={{ width: "20%" }}
-                        >
-                          Brand Name
+                      <tr className="border-b border-black">
+                        <th className="border-r border-black px-1 text-center">
+                          S.No
                         </th>
-                        <th
-                          className="border-r border-black text-center text-[11px]"
-                          style={{ width: "30%" }}
-                        >
-                          Generic Name
+                        <th className="border-r border-black px-1 text-center">
+                          Marks & Nos
                         </th>
-                        <th
-                          className="border-r border-black  text-center text-[11px]"
-                          style={{ width: "15%" }}
-                        >
-                          Company Name
+                        <th className="border-r border-black px-2 text-left">
+                          Description
                         </th>
-                        <th
-                          className="border-r border-black  text-center text-[11px]"
-                          style={{ width: "10%" }}
-                        >
-                          Qt
+                        <th className="border-r border-black px-1 text-center">
+                          UOM
                         </th>
-                        <th
-                          className="border-r border-black  text-center text-[11px]"
-                          style={{ width: "10%" }}
-                        >
-                          Rate (USD)
+                        <th className="border-r border-black px-1 text-center">
+                          Quantity
                         </th>
-                        <th
-                          className="text-center text-[11px]"
-                          style={{ width: "10%" }}
-                        >
-                          Value (USD)
+                        <th className="border-r border-black px-1 text-center">
+                          Net Weight
                         </th>
+                        <th className="border-r border-black px-1 text-center">
+                          Gross Weight
+                        </th>
+                        <th className="border-r border-black px-1 text-center">
+                          GST %
+                        </th>
+                        <th className="border-r border-black px-1 text-center">
+                          Rate
+                        </th>
+                        <th className="px-2 text-right">Amount</th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {Object.values(groupedItems).map((items, groupIndex) => {
-                        const first = items[0];
+                      {invoiceSubData.map((item, index) => {
+                        const qty = Number(item.invoiceSub_qnty || 0);
+                        const netWt =
+                          qty * Number(item.invoiceSub_item_net_weight || 0);
+                        const grossWt =
+                          netWt +
+                          qty * Number(item.invoiceSub_item_tare_weight || 0);
+                        const amount =
+                          qty * Number(item.invoiceSub_selling_rate || 0);
 
                         return (
-                          <Fragment key={groupIndex}>
-                            <tr className="border-t border-black text-[11px]">
-                              <td className="border-r border-black px-2">
-                                <p className="font-bold text-[10px]">
-                                  {first.item_brand_name}
-                                </p>
-                              </td>
+                          <tr key={item.id} className="border-t border-black">
+                            <td className="border-r border-black text-center">
+                              {index + 1}
+                            </td>
 
-                              <td className="border-r border-black px-2  text-[10px]">
-                                {first.item_generic_name}
-                              </td>
+                            <td className="border-r border-black text-center">
+                              {item.invoiceSub_marks_number}
+                            </td>
 
-                              <td className="border-r border-black px-2  text-center text-[10px]">
-                                {first.item_company_name}
-                              </td>
+                            <td className="border-r border-black px-2">
+                              <p className="font-semibold text-[11px]">
+                                {item.invoiceSub_item_name}
+                              </p>
+                              <p className="text-[10px]">
+                                Brand: {item.invoiceSub_item_brand_name}
+                              </p>
+                            </td>
 
-                              {/* Empty columns */}
-                              <td className="border-r border-black"></td>
-                              <td className="border-r border-black"></td>
-                              <td></td>
-                            </tr>
+                            <td className="border-r border-black text-center">
+                              {item.invoiceSub_item_order_uom}
+                            </td>
 
-                            {/* BATCH ROWS */}
-                            {items.map((it, i) => (
-                              <tr key={i} className="text-[11px]">
-                                <td className="border-r border-black px-2  text-[10px]">
-                                  Batch : {it.invoiceSub_batch_no}
-                                </td>
+                            <td className="border-r border-black text-center">
+                              {qty}
+                            </td>
 
-                                <td className="border-r border-black px-2  text-[10px]">
-                                  Mfg :{" "}
-                                  {moment(
-                                    it.invoiceSub_manufacture_date
-                                  ).format("MMM-YYYY")}
-                                </td>
+                            <td className="border-r border-black text-center">
+                              {item.invoiceSub_item_net_weight || ""}
+                            </td>
 
-                                {/* Exp */}
-                                <td className="border-r border-black px-2  text-[10px] text-center">
-                                  Exp :{" "}
-                                  {moment(it.invoiceSub_expire_date).format(
-                                    "MMM-YYYY"
-                                  )}
-                                </td>
+                            <td className="border-r border-black text-center">
+                              {grossWt.toFixed(2)}
+                            </td>
 
-                                <td className="border-r border-black px-2  text-center">
-                                  {it.invoiceSub_qnty}
-                                </td>
+                            <td className="border-r border-black text-center">
+                              {item.invoiceSub_item_gst}%
+                            </td>
+                            <td className="border-r border-black text-center">
+                              {item.invoiceSub_item_piece_rate}
+                            </td>
 
-                                <td className="border-r border-black px-2  text-center">
-                                  {it.invoiceSub_selling_rate}
-                                </td>
-
-                                <td className="px-2 text-right">
-                                  {(
-                                    Number(it.invoiceSub_qnty) *
-                                    Number(it.invoiceSub_selling_rate)
-                                  ).toFixed(2)}
-                                </td>
-                              </tr>
-                            ))}
-                          </Fragment>
+                            <td className="px-2 text-right">
+                              {amount.toFixed(2)}
+                            </td>
+                          </tr>
                         );
                       })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-y border-black text-[12px]">
-                        <td className="border-r border-black px-2  text-right"></td>
-                        <td className="border-r border-black px-2  text-right"></td>
-                        <td className="border-r border-black px-2 text-right"></td>
 
-                        <td className="border-r border-black px-2  text-center">
-                          {grandTotalQty}
+                      <tr className="border-t border-black font-semibold">
+                        <td
+                          colSpan={4}
+                          className="border-r border-black px-2 text-right"
+                        >
+                          TOTAL
+                        </td>
+
+                        <td className="border-r border-black text-center">
+                          {invoiceSubData.reduce(
+                            (s, i) => s + Number(i.invoiceSub_qnty || 0),
+                            0,
+                          )}
+                        </td>
+
+                        <td className="border-r border-black text-center">
+                          {invoiceSubData
+                            .reduce(
+                              (s, i) =>
+                                s + Number(i.invoiceSub_item_net_weight || 0),
+                              0,
+                            )
+                            .toFixed(2)}
+                        </td>
+
+                        <td className="border-r border-black text-center">
+                          {invoiceSubData
+                            .reduce((s, i) => {
+                              const q = Number(i.invoiceSub_qnty || 0);
+                              const n =
+                                q * Number(i.invoiceSub_item_net_weight || 0);
+                              const g =
+                                n +
+                                q * Number(i.invoiceSub_item_tare_weight || 0);
+                              return s + g;
+                            }, 0)
+                            .toFixed(2)}
                         </td>
 
                         <td className="border-r border-black"></td>
+                        <td className="border-r border-black"></td>
 
-                        <td className="px-2  text-right">
-                          {grandTotalValue.toFixed(2)}
-                        </td>
+                        <td className="px-2 text-right"></td>
                       </tr>
-
-                      <tr className="border-y border-black text-[11px]">
+                      <tr className="border-t border-black font-semibold">
                         <td
-                          colSpan={5}
-                          className="border-r border-black px-2  text-center"
+                          colSpan={6}
+                          className="border-r border-black px-2 text-right"
+                        ></td>
+
+                        <td
+                          className="border-r border-black text-center"
+                          colSpan={3}
                         >
-                          TOTAL FOB IN US$
+                          CIF Value Total
                         </td>
-                        <td className="px-2 text-right">
-                          {totalFOB.toFixed(2)}
+                        <td className="text-center">
+                          ${" "}
+                          {invoiceSubData
+                            .reduce(
+                              (s, i) =>
+                                s + Number(i.invoiceSub_selling_rate || 0),
+                              0,
+                            )
+                            .toFixed(2)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <table className="w-full border-collapse border-b border-black text-[12px] table-fixed">
+                    {invoiceColGroup}
+
+                    <tbody>
+                      <tr>
+                        <td colSpan={3} className="border-r border-black px-2">
+                          Amount (In Words)
+                        </td>
+                        <td colSpan={7} className="px-2">
+                          {amountInWords(grandTotalValue)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <table className="w-full  text-[11px] table-fixed">
+                    {invoiceColGroup}
+
+                    <tbody>
+                      {/* HEADER */}
+                      <tr>
+                        <td
+                          colSpan={8}
+                          className="border-r border-b border-black px-2"
+                        >
+                          GST Data for India
+                        </td>
+                        <td className="border-r border-b border-black text-center">
+                          Total
+                        </td>
+                        <td colSpan={1} className="px-2 text-xs">
+                          For Southpole Tradelink:
                         </td>
                       </tr>
 
-                      <tr className="border-y border-black text-[11px]">
+                      {/* TAXABLE VALUE USD */}
+                      <tr>
                         <td
-                          colSpan={5}
-                          className="border-r border-black px-2  text-center"
+                          colSpan={2}
+                          className="border-r border-b border-black px-2"
+                        ></td>
+                        <td
+                          colSpan={1}
+                          className="border-r border-b border-black px-2"
                         >
-                          TOTAL FREIGHT IN US $
+                          Taxable Value $
                         </td>
-                        <td className="px-2  text-right">
-                          {totalFreight.toFixed(2)}
+                        <td className="border border-black text-right px-2"></td>
+                        <td
+                          className="border border-black text-start px-2"
+                          colSpan={2}
+                        >
+                          {" "}
+                          33,990.00
                         </td>
+
+                        <td className="border border-black text-right px-2"></td>
+                        <td className="border border-black text-right px-2"></td>
+
+                        <td className="border border-black text-start px-2">
+                          33,990.00
+                        </td>
+
+                        <td className="text-right px-2">$33,990.00</td>
                       </tr>
 
-                      <tr className="text-[12px]">
+                      <tr>
                         <td
-                          colSpan={5}
-                          className="border-r border-black px-2 text-center"
-                        >
-                          TOTAL C&amp;F IN US$
+                          colSpan={2}
+                          className="border-r border-b border-black px-2"
+                        ></td>
+                        <td colSpan={1} className="border-r border-black px-2">
+                          Taxable Value ₹
                         </td>
-                        <td className="px-2 text-right">
-                          {totalCNF.toFixed(2)}
+                        <td className="border-r border-black text-right px-2"></td>
+                        <td
+                          className="border-r border-black text-start px-2"
+                          colSpan={2}
+                        >
+                          29,67,327.00
+                        </td>
+                        <td className="border border-black text-right px-2"></td>
+                        <td className="border border-black text-right px-2"></td>
+
+                        <td className="border border-black text-center">
+                          {" "}
+                          ₹29,67,327.00
+                        </td>
+                        <td className="text-right px-2">$ 3.85</td>
+                      </tr>
+
+                      <tr>
+                        <td
+                          colSpan={2}
+                          className="border-r border-b border-black px-2"
+                        ></td>
+                        <td className="border border-black px-2">IGST</td>
+                        <td className="border border-black text-center px-2">
+                          0.10%
+                        </td>
+                        <td className="border border-black px-2">5.00% </td>
+                        <td className="border border-black px-2">12.00% </td>
+                        <td className="border border-black px-2">18.00% </td>
+                        <td className="border border-black px-2"> 0.00% </td>
+                        <td className="border border-black"> </td>
+                      </tr>
+
+                      {/* IGST VALUE */}
+                      <tr>
+                        <td
+                          colSpan={2}
+                          className="border-r border-b border-black px-2"
+                        ></td>
+                        <td colSpan={1} className="border border-black px-2">
+                          IGST Value ₹
+                        </td>
+                        <td className="border border-black text-center"></td>
+                        <td
+                          className="border border-black text-start"
+                          colSpan={2}
+                        >
+                          1,48,366.35
+                        </td>
+                        <td className="border border-black text-center"></td>
+                        <td className="border border-black text-center"></td>
+
+                        <td className="border border-black text-right px-2">
+                          ₹1,48,366.35
+                        </td>
+                        <td className="text-center"></td>
+                      </tr>
+
+                      <tr>
+                        <td
+                          colSpan={2}
+                          className="border-r border-b border-black px-2"
+                        ></td>
+                        <td colSpan={1} className="border border-black px-2">
+                          USD Rate
+                        </td>
+                        <td className="border border-black text-center"></td>
+
+                        <td className="border border-black text-center">
+                          88.69
+                        </td>
+                        <td className="border border-black text-center"></td>
+
+                        <td className="border border-black text-center"></td>
+                        <td className="border border-black text-center"></td>
+                        <td className="border border-black text-center"></td>
+                      </tr>
+
+                      {/* DECLARATION */}
+                      <tr>
+                        <td
+                          colSpan={8}
+                          className="border-b border-black px-2 text-[10px] italic"
+                        >
+                          Declaration: We declare that this invoice shows the
+                          actual price of the goods described and that all
+                          particulars are true and correct
+                        </td>
+                        <td
+                          colSpan={2}
+                          className="border-b border-black text-right px-2"
+                        >
+                          Authorised Signatory
                         </td>
                       </tr>
-                    </tfoot>
+                    </tbody>
                   </table>
                 </div>
               </div>

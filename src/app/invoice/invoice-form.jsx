@@ -134,6 +134,7 @@ const InvoiceForm = () => {
   const { trigger, loading } = useApiMutation();
   const { trigger: fetchRef, loading: refloading, referror } = useApiMutation();
   const [openQtyDialog, setOpenQtyDialog] = useState(false);
+  const [isMarksDirty, setIsMarksDirty] = useState(false);
   const {
     trigger: fetchConractRef,
     loading: contractrefloading,
@@ -146,6 +147,7 @@ const InvoiceForm = () => {
     error: deleteerror,
   } = useApiMutation();
   const [step, setStep] = useState(1);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const master = useMasterQueries([
     "branch",
@@ -623,6 +625,10 @@ const InvoiceForm = () => {
       if (!row.invoiceSub_item_id) {
         newErrors[`subs.${idx}.invoiceSub_item_id`] = "Item is required";
       }
+      if (!row.invoiceSub_marks_number) {
+        newErrors[`subs.${idx}.invoiceSub_marks_number`] =
+          "Mark Number is required";
+      }
       if (!row.invoiceSub_qnty) {
         newErrors[`subs.${idx}.invoiceSub_qnty`] = "Qty is required";
       }
@@ -673,6 +679,20 @@ const InvoiceForm = () => {
     }
   };
   const handleSubmit = async () => {
+    if (isMarksDirty) {
+      toast.error("Quantity changed. Please generate mark numbers again");
+      return;
+    }
+
+    const hasMissingMarks = formData.subs.some(
+      (row) => row.invoiceSub_qnty && !row.invoiceSub_marks_number
+    );
+
+    if (hasMissingMarks) {
+      toast.error("Please generate mark numbers before submitting");
+      return;
+    }
+
     if (!validateForm()) {
       toast.error("Please fix the errors before submitting");
       return;
@@ -684,10 +704,21 @@ const InvoiceForm = () => {
   const handleSubChange = (index, key, value) => {
     setFormData((prev) => {
       const subs = [...prev.subs];
-      subs[index] = {
-        ...subs[index],
-        [key]: value,
-      };
+
+      if (key === "invoiceSub_qnty") {
+        subs[index] = {
+          ...subs[index],
+          invoiceSub_qnty: value,
+          invoiceSub_marks_number: "",
+        };
+
+        setIsMarksDirty(true);
+      } else {
+        subs[index] = {
+          ...subs[index],
+          [key]: value,
+        };
+      }
 
       return {
         ...prev,
@@ -710,6 +741,53 @@ const InvoiceForm = () => {
           ? [{ ...EMPTY_SUB }]
           : p.subs.filter((_, i) => i !== index),
     }));
+  };
+  const generateMarkNumbers = () => {
+    if (!formData.subs || formData.subs.length === 0) {
+      toast.error(
+        "Please add at least one item before generating mark numbers"
+      );
+      return;
+    }
+
+    const hasValidQty = formData.subs.some(
+      (row) => Number(row.invoiceSub_qnty) > 0
+    );
+
+    if (!hasValidQty) {
+      toast.error("Please enter quantity for at least one item");
+      return;
+    }
+    let current = 1;
+
+    setFormData((prev) => {
+      const updatedSubs = prev.subs.map((row) => {
+        const qty = Number(row.invoiceSub_qnty);
+
+        if (!qty || qty <= 0) {
+          return {
+            ...row,
+            invoiceSub_marks_number: "",
+          };
+        }
+
+        const start = current;
+        const end = current + qty - 1;
+
+        current = end + 1;
+
+        return {
+          ...row,
+          invoiceSub_marks_number: `${start}-${end}`,
+        };
+      });
+
+      return {
+        ...prev,
+        subs: updatedSubs,
+      };
+    });
+    setIsMarksDirty(false);
   };
 
   const confirmDelete = async () => {
@@ -1271,15 +1349,12 @@ const InvoiceForm = () => {
                             hideLabel
                             value={row.invoiceSub_marks_number ?? ""}
                             onChange={(v) =>
-                              handleSubChange(
-                                idx,
-                                "invoiceSub_marks_number",
-                                v.replace(/[^0-9]/g, "")
-                              )
+                              handleSubChange(idx, "invoiceSub_marks_number", v)
                             }
                             error={
                               errors[`subs.${idx}.invoiceSub_marks_number`]
                             }
+                            disabled
                           />
                         </TableCell>
 
@@ -1335,15 +1410,25 @@ const InvoiceForm = () => {
                 </Table>
               </Card>
 
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={addSub}
-                type="button"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Item
-              </Button>
+              <div className="flex gap-4">
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={addSub}
+                  type="button"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Item
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4"
+                  onClick={generateMarkNumbers}
+                >
+                  Generate Mark Numbers
+                </Button>
+              </div>
             </>
           </TabsContent>
         </Tabs>
