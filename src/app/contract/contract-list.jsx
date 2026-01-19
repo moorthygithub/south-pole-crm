@@ -76,9 +76,9 @@ const ContractList = () => {
           <CostSheetView
             onClick={() => navigate(`/costing/view/${row.original.id}`)}
           />
-          <ContractExport
+          {/* <ContractExport
             onClick={() => navigate(`/contract/view/${row.original.id}`)}
-          />
+          /> */}
         </>
       ),
     },
