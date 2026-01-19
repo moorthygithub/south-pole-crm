@@ -3,9 +3,10 @@ import LoadingBar from "@/components/loader/loading-bar";
 import { INVOICE_API } from "@/constants/apiConstants";
 import { useApiMutation } from "@/hooks/useApiMutation";
 import moment from "moment";
+import { toWords } from "number-to-words";
 import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-const PackingInvoice = () => {
+const InvoicePacking = () => {
   const { id } = useParams();
 
   const [invoicePackingData, setInvoicePackingData] = useState(null);
@@ -20,7 +21,7 @@ const PackingInvoice = () => {
       });
       setInvoicePackingData(response.data);
       setBranchData(response.branch);
-      setInvoiceSubData(response.data.subs1);
+      setInvoiceSubData(response.data.subs);
     } catch (error) {
       console.warn(error);
     }
@@ -28,24 +29,64 @@ const PackingInvoice = () => {
   useEffect(() => {
     fetchContractData();
   }, [id]);
-  const cartons = invoiceSubData.reduce((acc, item) => {
-    const cartonNo = item.invoicePackingSub_carton_no;
-
-    if (!acc[cartonNo]) {
-      acc[cartonNo] = {
-        cartonNo,
-        boxSize: item.invoicePackingSub_box_size,
-        netWeight: Number(item.invoicePackingSub_net_weight || 0),
-        grossWeight: Number(item.invoicePackingSub_gross_weight || 0),
-        items: [],
-      };
+  const groupedItems = invoiceSubData.reduce((acc, item) => {
+    if (!acc[item.invoiceSub_item_id]) {
+      acc[item.invoiceSub_item_id] = [];
     }
-
-    acc[cartonNo].items.push(item);
+    acc[item.invoiceSub_item_id].push(item);
     return acc;
   }, {});
 
-  const safe = (v) => (v ? v : "\u00A0");
+  const safe = (value) => value || "\u00A0";
+  const grandTotalQty = Object.values(groupedItems).reduce(
+    (sum, items) =>
+      sum + items.reduce((s, it) => s + Number(it.invoiceSub_qnty || 0), 0),
+    0,
+  );
+
+  const grandTotalValue = Object.values(groupedItems).reduce(
+    (sum, items) =>
+      sum +
+      items.reduce((s, it) => s + Number(it.invoiceSub_selling_rate || 0), 0),
+    0,
+  );
+  const amountInWords = (amount) => {
+    if (!amount) return "";
+
+    const integerPart = Math.floor(amount);
+    const decimalPart = Math.round((amount - integerPart) * 100);
+
+    const formatCase = (text) =>
+      text
+        .replace(/,/g, "") // remove commas
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+    let words = `${formatCase(toWords(integerPart))} Dollars`;
+
+    if (decimalPart > 0) {
+      words += ` And ${formatCase(toWords(decimalPart))} Cents`;
+    }
+
+    return words + " Only";
+  };
+  const invoiceColGroup = (
+    <colgroup>
+      <col style={{ width: "3%" }} />
+      <col style={{ width: "8%" }} />
+      <col style={{ width: "18%" }} />
+      <col style={{ width: "10%" }} />
+      <col style={{ width: "8%" }} />
+      <col style={{ width: "8%" }} />
+      <col style={{ width: "5%" }} />
+      <col style={{ width: "7%" }} />
+      <col style={{ width: "7%" }} />
+      <col style={{ width: "7%" }} />
+      <col style={{ width: "7%" }} />
+      <col style={{ width: "10%" }} />
+    </colgroup>
+  );
 
   if (error) return <ApiErrorPage />;
   return (
@@ -55,36 +96,52 @@ const PackingInvoice = () => {
       <div className="font-normal">
         {invoicePackingData && (
           <>
-            <div className="max-w-4xl mx-auto p-4 ">
+            <div className="max-w-6xl mx-auto p-4 ">
               <div className="border-t border-r border-l border-black max-w-screen-lg mx-auto text-sm">
                 <div>
                   <div className="border-b border-black px-8 py-2  text-center text-sm font-bold  ">
-                    PACKING INVOICE
+                    PACKING
                   </div>
                 </div>
-                {/* //SECTION___1 */}
                 <div className="grid grid-cols-12 border-b border-black text-[12px]">
-                  <div className="col-span-5 border-r border-black">
+                  <div className="col-span-7 border-r border-black">
                     <div className="p-2">
                       <p className="font-bold text-[13px]">
-                        {invoicePackingData.branch_name}
+                        Exporter: {invoicePackingData.branch_name}
                       </p>
-
                       <div className="mt-1">
-                        <span className="font-semibold">Corp office:</span>{" "}
-                        {branchData.branch_crop_address || ""}
+                        {branchData?.branch_crop_address || ""}
+                      </div>
+                      <div>{branchData?.branch_address || ""}</div>
+                      <div>
+                        <span className="font-semibold">GSTIN:</span>{" "}
+                        {branchData?.branch_gst || ""}{" "}
+                        <span className="font-semibold">IEC:</span>{" "}
+                        {branchData?.branch_iec || ""}
                       </div>
 
                       <div>
                         <span className="font-semibold">Mobile:</span>{" "}
-                        {branchData.branch_mobile_no || ""}
+                        {branchData?.branch_mobile_no || ""}
+                      </div>
+                      <div>
+                        <span className="font-semibold">Email:</span>{" "}
+                        {branchData?.branch_email_id || ""}
                       </div>
                     </div>
 
-                    <div className="border-t border-black">
+                    <div className="border-t border-black grid grid-cols-2 gap-2 ">
+                      <div className="p-2 border-r border-black ">
+                        <p className="font-bold">Importer:</p>
+                        <p className="font-bold">
+                          {invoicePackingData.invoice_buyer}
+                        </p>
+                        <div className="mt-1">
+                          {invoicePackingData.invoice_buyer_add}
+                        </div>
+                      </div>
                       <div className="p-2">
-                        <p className="font-bold">Consignee:</p>
-                        <p className="font-bold">TO ORDER OF:</p>
+                        <p className="font-bold">Ship To:</p>
                         <p className="font-bold">
                           {invoicePackingData.invoice_consignee}
                         </p>
@@ -95,308 +152,243 @@ const PackingInvoice = () => {
                     </div>
                   </div>
 
-                  <div className="col-span-7  text-[12px]">
+                  <div className="col-span-5  text-[12px]">
                     <div className="grid grid-cols-2 border-b border-black">
-                      <div className="border-r border-black px-2 py-0.5 min-h-[22px]">
-                        <span className="font-bold "> Invoice No: </span>
+                      <div className="border-r border-black px-2 py-0.5 font-bold min-h-[22px]">
+                        Invoice No:
+                      </div>
+                      <div className="px-2 py-0.5 min-h-[22px] font-bold">
+                        {" "}
+                        Date:
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 border-b border-black">
+                      <div className="border-r border-black px-2 py-0.5  min-h-[22px]">
                         {safe(invoicePackingData?.invoice_ref)}
                       </div>
                       <div className="px-2 py-0.5 min-h-[22px]">
-                        {" "}
-                        <span className="font-bold "> IEC No: </span>
-                        {safe(branchData?.branch_iec)}
-                      </div>
-                    </div>
-
-                    {/* Date */}
-                    <div className="grid grid-cols-2 border-b border-black">
-                      <div className="border-r border-black px-2 py-0.5 min-h-[22px]">
-                        <span className="font-bold "> Invoice Date: </span>
                         {invoicePackingData?.invoice_date
                           ? moment(invoicePackingData.invoice_date).format(
-                              "DD-MM-YYYY"
+                              "DD-MM-YYYY",
                             )
-                          : "\u00A0"}{" "}
-                      </div>
-                      <div className="px-2 py-0.5 min-h-[22px]">
-                        {" "}
-                        <span className="font-bold "> GST: </span>
-                        {safe(branchData?.branch_gst)}
+                          : "\u00A0"}
                       </div>
                     </div>
 
-                    <div className="grid border-b border-black">
-                      <div className="px-2 py-0.5  min-h-[22px] text-center">
-                        DL : TN-05-20B, 21B-00584
+                    <div className="grid grid-cols-2 border-b border-black">
+                      <div className="border-r border-black px-2 py-0.5 font-bold min-h-[22px]">
+                        Order No. & Date
+                      </div>
+                      <div className="px-2 py-0.5 font-bold min-h-[22px]">
+                        LUT/ARN
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 border-b border-black">
+                      <div className="border-r border-black px-2 py-0.5 min-h-[22px]">
+                        {safe(invoicePackingData?.invoice_precarriage)}
+                      </div>
+                      <div className="px-2 py-0.5 min-h-[22px]">
+                        {safe(invoicePackingData?.invoice_lut_code)}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 border-b border-black">
-                      <div className="border-r border-black px-2 py-0.5  min-h-[22px]">
-                        <span className="font-bold "> Country of Origin :</span>{" "}
-                        India{" "}
+                      <div className="border-r border-black px-2 py-0.5 font-bold min-h-[22px]">
+                        Port of Loading
                       </div>
-                      <div className="px-2 py-0.5  min-h-[22px]">
-                        <span className="font-bold ">Final Destination :</span>{" "}
+                      <div className="px-2 py-0.5 font-bold min-h-[22px]">
+                        Port of Discharge
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 border-b border-black">
+                      <div className="border-r border-black px-2 py-0.5 min-h-[22px]">
+                        {safe(invoicePackingData?.invoice_loading)}
+                      </div>
+                      <div className="px-2 py-0.5 min-h-[22px]">
+                        {safe(invoicePackingData?.invoice_discharge)}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 border-b border-black">
+                      <div className="border-r border-black px-2 py-0.5 font-bold min-h-[22px]">
+                        Origin of Goods
+                      </div>
+                      <div className="px-2 py-0.5 font-bold min-h-[22px]">
+                        Final Destination
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 border-b border-black">
+                      <div className="border-r border-black px-2 py-0.5 min-h-[22px]">
+                        India
+                      </div>
+                      <div className="px-2 py-0.5 min-h-[22px]">
                         {safe(invoicePackingData?.invoice_destination_country)}
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 border-b border-black">
-                      <div className="border-r border-black px-2 py-0.5  min-h-[22px]">
-                        <span className="font-bold "> Place of Loading :</span>{" "}
-                        {safe(invoicePackingData?.invoice_loading)}
-                      </div>
-                      <div className="px-2 py-0.5  min-h-[22px]">
-                        <span className="font-bold ">Place of Receipt :</span>{" "}
-                        --
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 border-b border-black">
-                      <div className="border-r border-black px-2 py-0.5  min-h-[22px]">
-                        <span className="font-bold "> Vessel / Flight No.</span>{" "}
-                        {safe(invoicePackingData?.invoice_vessel_flight_no)}
-                      </div>
-                      <div className="px-2 py-0.5  min-h-[22px]">
-                        <span className="font-bold ">
-                          Pre-Carriage by Air :
-                        </span>{" "}
-                        {safe(invoicePackingData?.invoice_precarriage)}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 text-[11px]">
-                      <div className="border-r border-black px-2 py-1">
-                        <span className="font-bold">
-                          BUYER (IF OTHER THAN CONSIGNEE).
-                        </span>
-                        <div>-----------</div>
-                      </div>
 
-                      <div className="px-2 py-1 min-h-20">
-                        <span className="font-bold">Terms of Delivery :</span>
-                        <div>
-                          {safe(invoicePackingData?.invoice_payment_terms)}
-                        </div>
-                      </div>
+                    <div className="px-2  min-h-[36px]">
+                      <p className="font-bold">Terms of Payment</p>
+                      <p>{safe(invoicePackingData?.invoice_payment_terms)}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="text-[12px] border-b border-black">
-                  <table className="w-full border-collapse text-[11px]">
+                <div className="text-[12px]">
+                  <table className="w-full border-collapse table-fixed border-b border-black">
+                    {invoiceColGroup}
+
                     <thead>
                       <tr className="border-b border-black">
-                        <th
-                          className="border-r border-black w-[10%] text-center"
-                          rowSpan={2}
-                        >
-                          CARTON NO
+                        <th className="border-r border-black px-1 text-center">
+                          S.No
                         </th>
-                        <th
-                          className="border-r border-black w-[10%] text-center"
-                          rowSpan={2}
-                        >
-                          DIMENSIONS
+                        <th className="border-r border-black px-1 text-center">
+                          Marks & Nos
                         </th>
-                        <th
-                          className="border-r border-black w-[8%] text-center"
-                          rowSpan={2}
-                        >
-                          BATCH
+                        <th className="border-r border-black px-2 text-left">
+                          Description
                         </th>
-                        <th
-                          className="border-r border-black w-[7%] text-center"
-                          rowSpan={2}
-                        >
-                          MFG
+                        <th className="border-r border-black px-1 text-center">
+                          QFR NO.
                         </th>
-                        <th
-                          className="border-r border-black w-[7%] text-center"
-                          rowSpan={2}
-                        >
-                          EXP
+                        <th className="border-r border-black px-1 text-center">
+                          HSN/SAC
                         </th>
-                        <th
-                          className="border-r border-black w-[25%] text-center"
-                          rowSpan={2}
-                        >
-                          DESCRIPTION
+                        <th className="border-r border-black px-1 text-center">
+                          UOM
                         </th>
-                        <th
-                          className="border-r border-black w-[5%] text-center"
-                          rowSpan={2}
-                        >
-                          PKG
+                        <th className="border-r border-black px-1 text-center">
+                          QTY IN BOX
                         </th>
-                        <th
-                          className="border-r border-black w-[7%] text-center"
-                          rowSpan={2}
-                        >
-                          QTY
+                        <th className="border-r border-black px-1 text-center">
+                          QTY IN PCS
                         </th>
-                        <th className="border-black text-center" colSpan={2}>
-                          Remarks
+                        <th className="border-r border-black px-1 text-center">
+                          Net Weight
                         </th>
-                      </tr>
-
-                      <tr className="border-b border-black">
-                        <th className="border-r border-black text-center">
-                          Net Wgt
+                        <th className="border-r border-black px-1 text-center">
+                          Gross Weight
                         </th>
-                        <th className="text-center">Gross Wgt</th>
+                        <th className="border-r border-black px-1 text-center">
+                          CBM
+                        </th>
+                        <th className="px-1 text-center">Barcode</th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {Object.values(cartons).map((carton, cIdx) => {
-                        const rowSpan = carton.items.length;
+                      {invoiceSubData.map((item, index) => {
 
                         return (
-                          <Fragment key={cIdx}>
-                            {carton.items.map((it, iIdx) => (
-                              <tr key={iIdx} className="border-t border-black">
-                                {iIdx === 0 && (
-                                  <td
-                                    rowSpan={rowSpan}
-                                    className="border-r border-black text-center align-middle font-medium"
-                                  >
-                                    {carton.cartonNo}
-                                  </td>
-                                )}
+                          <tr key={item.id} className="border-t border-black">
+                            <td className="border-r border-black text-center">
+                              {index + 1}
+                            </td>
 
-                                {iIdx === 0 && (
-                                  <td
-                                    rowSpan={rowSpan}
-                                    className="border-r border-black text-center align-middle"
-                                  >
-                                    {carton.boxSize}
-                                  </td>
-                                )}
+                            <td className="border-r border-black text-center">
+                              {item.invoiceSub_marks_number}
+                            </td>
 
-                                <td className="border-r border-black text-center">
-                                  {it.invoicePackingSub_batch_no}
-                                </td>
+                            <td className="border-r border-black px-2">
+                              <p className="font-semibold text-[11px]">
+                                {item.invoiceSub_item_name}
+                              </p>
+                              <p className="text-[10px]">
+                                Brand: {item.invoiceSub_item_brand_name}
+                              </p>
+                            </td>
 
-                                <td className="border-r border-black text-center">
-                                  {moment(
-                                    it.invoicePackingSub_manufacture_date
-                                  ).format("MMM-YY")}
-                                </td>
+                            <td className="border-r border-black text-center"></td>
 
-                                <td className="border-r border-black text-center">
-                                  {moment(
-                                    it.invoicePackingSub_expire_date
-                                  ).format("MMM-YY")}
-                                </td>
+                            <td className="border-r border-black text-center">
+                              {item.invoiceSub_item_hsn_code}
+                            </td>
 
-                                <td className="border-r border-black px-2"></td>
+                            <td className="border-r border-black text-center">
+                              {item.invoiceSub_item_order_uom}
+                            </td>
 
-                                <td className="border-r border-black text-center">
-                                  {it.invoicePackingSub_box_size}
-                                </td>
+                            <td className="border-r border-black text-center"></td>
 
-                                <td className="border-r border-black text-center">
-                                  {Number(it.invoicePackingSub_qnty)}
-                                </td>
-
-                                {iIdx === 0 && (
-                                  <>
-                                    <td
-                                      rowSpan={rowSpan}
-                                      className="border-r border-black text-center align-middle"
-                                    >
-                                      {carton.netWeight.toFixed(2)}
-                                    </td>
-
-                                    <td
-                                      className="border-black text-center align-middle"
-                                      rowSpan={rowSpan}
-                                    >
-                                      {carton.grossWeight.toFixed(2)}
-                                    </td>
-                                  </>
-                                )}
-                              </tr>
-                            ))}
-                          </Fragment>
+                            <td className="border-r border-black text-center">
+                              {" "}
+                              {item.invoiceSub_item_piece_rate || ""}
+                            </td>
+                            <td className="border-r border-black text-center">
+                              {item.invoiceSub_item_net_weight || ""}
+                            </td>
+                            <td className="border-r border-black text-center"></td>
+                            <td className="border-r border-black text-center"></td>
+                            <td>
+                              {" "}
+                              {item.invoiceSub_item_barcode || ""}
+                            </td>
+                          </tr>
                         );
                       })}
 
-                      <tr className="border-t border-black">
+                      <tr className="border-t border-black font-semibold">
                         <td
-                          colSpan={7}
-                          className="border-r border-black text-center px-2"
+                          colSpan={6}
+                          className="border-r border-black px-2 text-right"
                         >
                           TOTAL
                         </td>
 
-                        <td className="border-r border-black text-center">
-                          {Object.values(cartons)
-                            .flatMap((c) => c.items)
-                            .reduce(
-                              (sum, it) =>
-                                sum + Number(it.invoicePackingSub_qnty || 0),
-                              0
-                            )}
+                        <td className="border-r border-black text-center"></td>
+
+                        <td className="border-r border-black text-center"></td>
+
+                        <td className="border-r border-black text-center"></td>
+
+                        <td className="border-r border-black"></td>
+                        <td className="border-r border-black"></td>
+                      </tr>
+                      <tr className="border-t border-black font-semibold">
+                        <td
+                          colSpan={3}
+                          className="border-r border-black px-2 text-right"
+                        >
+                          Company's PAN / IEC Code:
                         </td>
 
-                        <td className="border-r border-black text-center">
-                          {Object.values(cartons)
-                            .reduce(
-                              (sum, c) => sum + Number(c.netWeight || 0),
-                              0
-                            )
-                            .toFixed(2)}
+                        <td
+                          className="border-r border-black text-center"
+                          colSpan={3}
+                        >
+                          BFFPP1027R
                         </td>
-
-                        <td className="text-center">
-                          {Object.values(cartons)
-                            .reduce(
-                              (sum, c) => sum + Number(c.grossWeight || 0),
-                              0
-                            )
-                            .toFixed(2)}
+                        <td className="text-xs border-r border-black" colSpan={3}>
+                          For Southpole Tradelink
                         </td>
                       </tr>
-                      {/* SUMMARY ROWS */}
-                      <tr className="border-t border-black">
-                        <td colSpan={10} className="px-2 py-1">
-                          NET WEIGHT TOTAL :
-                          {Object.values(cartons)
-                            .reduce(
-                              (sum, c) => sum + Number(c.netWeight || 0),
-                              0
-                            )
-                            .toFixed(2)}
-                        </td>
-                      </tr>
+                    </tbody>
+                  </table>
 
-                      <tr className="border-t border-black">
-                        <td colSpan={10} className="px-2 py-1">
-                          GROSS WEIGHT TOTAL :
-                          {Object.values(cartons)
-                            .reduce(
-                              (sum, c) => sum + Number(c.grossWeight || 0),
-                              0
-                            )
-                            .toFixed(2)}
-                        </td>
-                      </tr>
+                  <table className="w-full  text-[11px] table-fixed">
+                    {invoiceColGroup}
 
-                      <tr className="border-t border-black">
-                        <td colSpan={10} className="px-2 py-1">
-                          NO OF QUANTITY :
-                          {Object.values(cartons)
-                            .flatMap((c) => c.items)
-                            .reduce(
-                              (sum, it) =>
-                                sum + Number(it.invoicePackingSub_qnty || 0),
-                              0
-                            )}
+                    <tbody>
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="border-b border-black px-2 text-[10px] italic"
+                        >
+                          Declaration:We Declare that this Invoice shows the
+                          actual price of the goods described and that all
+                          particulars are true and correct
                         </td>
-                      </tr>
-
-                      <tr className="border-t border-black">
-                        <td colSpan={10} className="px-2 py-1">
-                          NO OF PACKAGES :{Object.values(cartons).length}
+                        <td className="border-b border-r border-black text-right px-2"></td>
+                        <td className="border-b border-r border-black text-right px-2"></td>
+                        <td className="border-b border-r border-black text-right px-2"></td>
+                        <td
+                          colSpan={4}
+                          className="border-b border-black text-right px-2"
+                        >
+                          Authorised Signatory
                         </td>
                       </tr>
                     </tbody>
@@ -412,4 +404,4 @@ const PackingInvoice = () => {
   );
 };
 
-export default PackingInvoice;
+export default InvoicePacking;

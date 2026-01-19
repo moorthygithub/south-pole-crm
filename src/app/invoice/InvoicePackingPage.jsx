@@ -20,10 +20,12 @@ export default function InvoicePackingPage() {
     documentTitle:
       activeView === "invoice" ? "Invoice Report" : "Packing Report",
     pageStyle: `
-      @page {
-        size: auto;
-        margin: 3mm;
-      }
+    
+     @page {
+      size: ${activeView === "packing" ? "A4 landscape" : "A4 portrait"};
+      margin: 3mm;
+    }
+
 
       @media print {
         body {
