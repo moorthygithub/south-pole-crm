@@ -38,11 +38,6 @@ const ExportInvoice = () => {
   }, {});
 
   const safe = (value) => value || "\u00A0";
-  const grandTotalQty = Object.values(groupedItems).reduce(
-    (sum, items) =>
-      sum + items.reduce((s, it) => s + Number(it.invoiceSub_qnty || 0), 0),
-    0,
-  );
 
   const grandTotalValue = Object.values(groupedItems).reduce(
     (sum, items) =>
@@ -274,13 +269,92 @@ const ExportInvoice = () => {
                     <tbody>
                       {invoiceSubData.map((item, index) => {
                         const qty = Number(item.invoiceSub_qnty || 0);
+                        const dollorrate = safe(
+                          Number(invoicePackingData.invoice_dollar_rate || 0),
+                        );
                         const netWt =
-                          qty * Number(item.invoiceSub_item_net_weight || 0);
+                          Number(item.invoiceSub_item_net_weight || 0) *
+                          Number(item.invoiceSub_item_pack_per_case || 0) *
+                          qty;
+
                         const grossWt =
-                          netWt +
-                          qty * Number(item.invoiceSub_item_tare_weight || 0);
-                        const amount =
-                          qty * Number(item.invoiceSub_selling_rate || 0);
+                          (Number(item.invoiceSub_item_net_weight || 0) *
+                            Number(item.invoiceSub_item_pack_per_case || 0) +
+                            Number(item.invoiceSub_item_tare_weight || 0)) *
+                          Number(qty || 0);
+
+                        const toMeter = (cm) => Number(cm || 0) / 100;
+
+                        const invoiceSub_cartonbox_l_m = toMeter(
+                          item.invoiceSub_cartonbox_l,
+                        );
+                        const invoiceSub_cartonbox_w_m = toMeter(
+                          item.invoiceSub_cartonbox_w,
+                        );
+                        const invoiceSub_cartonbox_h_m = toMeter(
+                          item.invoiceSub_cartonbox_h,
+                        );
+
+                        const invoiceSub_cartonbox_cbm = (
+                          invoiceSub_cartonbox_l_m *
+                          invoiceSub_cartonbox_w_m *
+                          invoiceSub_cartonbox_h_m
+                        ).toFixed(5);
+
+                        const Rate =
+                          Number(invoiceSub_cartonbox_cbm || 0) *
+                          Number(qty || 0);
+                        // const totalRate = invoiceSubData
+                        //   .reduce((sum, item) => {
+                        //     const l_m = toMeter(item.invoiceSub_cartonbox_l);
+                        //     const w_m = toMeter(item.invoiceSub_cartonbox_w);
+                        //     const h_m = toMeter(item.invoiceSub_cartonbox_h);
+                        // const qty = Number(item.invoiceSub_qnty || 0);
+                        //     const cbm = l_m * w_m * h_m;
+
+                        //     return sum + cbm * qty;
+                        //   }, 0)
+                        //   .toFixed(5);
+                        const totalRate = 28.71;
+                        const FTD = 250000;
+                        const csrate =
+                          Number(item.invoiceSub_item_pack_per_case || 0) *
+                          Number(item.invoiceSub_selling_rate || 0);
+                        const pamount = csrate * qty;
+                        // const pamountSum = invoiceSubData
+                        //   .reduce((sum, item) => {
+                        //     const csratevalue = Number(csrate || 0);
+                        //     const qty = Number(item.invoiceSub_qnty || 0);
+
+                        //     const pamount = csratevalue * qty;
+
+                        //     return sum + pamount;
+                        //   }, 0)
+                        //   .toFixed(5);
+                        const pamountSum = 2513225;
+                        const pertotal = ((Rate / totalRate) * 100).toFixed(2); //for view
+                        const pertotalcalc = Rate / totalRate;
+                        const profit =
+                          (Number(FTD || 0) + Number(pamountSum || 0)) * 0.05;
+
+                        const healthcr = 30000;
+                        const localtransport = 25000;
+                        const total =
+                          pamountSum + FTD + profit + healthcr + localtransport;
+                        const subtotal = (
+                          FTD +
+                          profit +
+                          healthcr +
+                          localtransport
+                        ).toFixed(0);
+
+                        const ftdshare = (pertotalcalc * subtotal).toFixed(0);
+                        const cifinr = Number(ftdshare) + Number(pamount);
+                        const cifrateperinr = Number(cifinr) / Number(qty);
+                        const cifrate = (
+                          Number(cifrateperinr) / Number(dollorrate)
+                        ).toFixed(2);
+                        const amount = (Number(cifrate || 0) * qty).toFixed(2);
 
                         return (
                           <tr key={item.id} className="border-t border-black">
@@ -310,7 +384,7 @@ const ExportInvoice = () => {
                             </td>
 
                             <td className="border-r border-black text-center">
-                              {item.invoiceSub_item_net_weight || ""}
+                              {netWt || ""}
                             </td>
 
                             <td className="border-r border-black text-center">
@@ -321,12 +395,10 @@ const ExportInvoice = () => {
                               {item.invoiceSub_item_gst}%
                             </td>
                             <td className="border-r border-black text-center">
-                              {item.invoiceSub_item_piece_rate}
+                              {cifrate}
                             </td>
 
-                            <td className="px-2 text-right">
-                              {amount.toFixed(2)}
-                            </td>
+                            <td className="px-2 text-right">{amount}</td>
                           </tr>
                         );
                       })}
@@ -453,14 +525,26 @@ const ExportInvoice = () => {
                           colSpan={2}
                         >
                           {" "}
-                          33,990.00
+                          {invoiceSubData
+                            .reduce(
+                              (s, i) =>
+                                s + Number(i.invoiceSub_selling_rate || 0),
+                              0,
+                            )
+                            .toFixed(2)}
                         </td>
 
                         <td className="border border-black text-right px-2"></td>
                         <td className="border border-black text-right px-2"></td>
 
                         <td className="border border-black text-start px-2">
-                          33,990.00
+                          {invoiceSubData
+                            .reduce(
+                              (s, i) =>
+                                s + Number(i.invoiceSub_selling_rate || 0),
+                              0,
+                            )
+                            .toFixed(2)}
                         </td>
 
                         <td className="text-right px-2">$33,990.00</td>
@@ -479,7 +563,13 @@ const ExportInvoice = () => {
                           className="border-r border-black text-start px-2"
                           colSpan={2}
                         >
-                          29,67,327.00
+                          {(
+                            invoiceSubData?.reduce(
+                              (sum, item) =>
+                                sum + Number(item.invoiceSub_selling_rate || 0),
+                              0,
+                            ) * safe(invoicePackingData.invoice_dollar_rate)
+                          ).toFixed(2)}
                         </td>
                         <td className="border border-black text-right px-2"></td>
                         <td className="border border-black text-right px-2"></td>
@@ -543,7 +633,7 @@ const ExportInvoice = () => {
                         <td className="border border-black text-center"></td>
 
                         <td className="border border-black text-center">
-                          88.69
+                          {safe(invoicePackingData.invoice_dollar_rate)}
                         </td>
                         <td className="border border-black text-center"></td>
 
